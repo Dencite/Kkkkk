@@ -1,50 +1,55 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify
 import requests
 import os
 
 app = Flask(__name__)
 
-API_TOKEN = os.getenv("CR_API_TOKEN", "YOUR_API_TOKEN_HERE")
-HEADERS = {"Authorization": f"Bearer {API_TOKEN}"}
+# Use environment variable for safety
+API_TOKEN = os.environ.get("CR_API_TOKEN")  # Set this in Render Dashboard
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+HEADERS = {
+    "Authorization": f"Bearer {API_TOKEN}"
+}
 
-@app.route("/get_deck", methods=["POST"])
+@app.route("/get-deck", methods=["POST"])
 def get_deck():
     try:
-        medals = int(request.json.get("medals"))
-    except:
-        return jsonify({"error": "Invalid medal input"}), 400
+        data = request.get_json()
+        medals = int(data.get('medals'))
 
-    url = "https://api.clashroyale.com/v1/locations/global/pathOfLegends/season/ultimateChampionRankings"
-    res = requests.get(url, headers=HEADERS)
-    players = res.json().get("items", [])
+        # Step 1: Get leaderboard players
+        leaderboard_url = "https://api.clashroyale.com/v1/rankings/global/players"
+        res = requests.get(leaderboard_url, headers=HEADERS)
 
-    if not players:
-        return jsonify({"error": "Could not fetch player data"}), 500
+        if res.status_code != 200:
+            return jsonify({"error": "Leaderboard fetch failed"}), 500
 
-    # Find player with closest UC medals
-    closest_player = min(players, key=lambda p: abs(p["trophies"] - medals))
-    tag = closest_player["tag"].replace("#", "%23")
-    matched_medals = closest_player["trophies"]
-    name = closest_player["name"]
+        players = res.json().get("items", [])
 
-    log_url = f"https://api.clashroyale.com/v1/players/{tag}/battlelog"
-    log = requests.get(log_url, headers=HEADERS).json()
+        # Step 2: Match exact medals and fetch deck
+        for player in players:
+            if player.get("trophies") == medals:
+                tag = player["tag"].replace("#", "%23")
+                battle_url = f"https://api.clashroyale.com/v1/players/{tag}/battlelog"
+                battle_res = requests.get(battle_url, headers=HEADERS)
 
-    for b in log:
-        if "cards" in b.get("team", [{}])[0]:
-            deck = b["team"][0]["cards"]
-            return jsonify({
-                "deck": [{
-                    "name": c["name"],
-                    "level": c["level"],
-                    "icon": c["iconUrls"]["medium"]
-                } for c in deck],
-                "player": name,
-                "matched_medals": matched_medals
-            })
+                if battle_res.status_code != 200:
+                    return jsonify({"error": "Battle log fetch failed"}), 500
 
-    return jsonify({"error": "Deck not found"}), 404
+                battles = battle_res.json()
+                for battle in battles:
+                    if battle["type"] == "PvP":
+                        deck = [{"name": c["name"], "level": c["level"]} for c in battle["team"][0]["cards"]]
+                        return jsonify({"deck": deck})
+
+        return jsonify({"error": "Player not found with exact medals"}), 404
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/")
+def home():
+    return "Backend is Running"
+
+if __name__ == "__main__":
+    app.run()
