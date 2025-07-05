@@ -31,4 +31,4 @@ def get_deck():
                 "level": c["level"],
                 "icon": c["iconUrls"]["medium"]
             } for c in deck]})
-    return jsonify({"error": "Deck not found."}), 404o
+    return jsonify({"error": "Deck not found."}), 404
