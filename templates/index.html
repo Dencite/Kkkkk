@@ -21,33 +21,30 @@
 
   <script>
     async function getDeck() {
-      const medals = document.getElementById("medals").value;
-      const resultDiv = document.getElementById("result");
-      resultDiv.innerHTML = "Loading...";
+  const medals = document.getElementById("medals").value;
+  const resultDiv = document.getElementById("result");
+  resultDiv.innerHTML = "Loading...";
 
-      const res = await fetch("/get_deck", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ medals: parseInt(medals) })
-      });
+  const res = await fetch("https://jus-5dlj.onrender.com/get-deck", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ medals: parseInt(medals) })
+  });
 
-      const data = await res.json();
+  const data = await res.json();
 
-      if (data.error) {
-        resultDiv.innerHTML = `<p style='color:red;'>${data.error}</p>`;
-        return;
-      }
+  if (data.error) {
+    resultDiv.innerHTML = `<p style='color:red;'>${data.error}</p>`;
+    return;
+  }
 
-      resultDiv.innerHTML = "<h2>Deck:</h2>";
-      data.deck.forEach(card => {
-        resultDiv.innerHTML += `
-          <div class="card">
-            <img src="${card.icon}" alt="${card.name}" />
-            <div>${card.name} (Lvl ${card.level})</div>
-          </div>
-        `;
-      });
-    }
-  </script>
-</body>
-</html>
+  resultDiv.innerHTML = "<h2>Deck:</h2>";
+  data.deck.forEach(card => {
+    resultDiv.innerHTML += `
+      <div class="card">
+        <img src="${card.icon || 'https://via.placeholder.com/80'}" alt="${card.name}" />
+        <div>${card.name} (Lvl ${card.level})</div>
+      </div>
+    `;
+  });
+}
